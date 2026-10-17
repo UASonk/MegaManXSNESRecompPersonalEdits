@@ -123,14 +123,14 @@ static void MmxDashVramCheck(void) {
  * pose. The PPU OAM reflects the last completed frame at this boundary. */
 static void MmxDashOamTrace(void) {
   static uint8_t observed;
-  if (!g_ppu || !MmxZeroEnabled() || (g_ram[0x1f99] & 8) ||
-      g_ram[0xbaa] != 0x14) return;
+  if (!g_ppu || !MmxZeroEnabled() || g_ram[0xbaa] != 0x14) return;
   unsigned pose = g_ram[0xbbf] & 0x7f;
   if (pose < 0x36 || pose > 0x38) return;
-  unsigned bit = 1u << (pose - 0x36);
+  unsigned boots = !!(g_ram[0x1f99] & 8);
+  unsigned bit = 1u << (pose - 0x36 + boots * 3u);
   if (observed & bit) return;
   observed |= bit;
-  fprintf(stderr, "[dash-oam] pose=%02x: visible OAM slots (x,y,tile,attr,size)\n", pose);
+  fprintf(stderr, "[dash-oam] boots=%u pose=%02x: visible OAM slots (x,y,tile,attr,size)\n", boots, pose);
   unsigned printed = 0;
   for (unsigned i = 0; i < 128; ++i) {
     uint16_t xy = g_ppu->oam[i * 2];
@@ -140,11 +140,11 @@ static void MmxDashOamTrace(void) {
     unsigned extra = (g_ppu->highOam[i / 4] >> ((i % 4) * 2)) & 3;
     if (extra & 1) x -= 256;
     if (y >= 224 || x < -32 || x > 255) continue;
-    fprintf(stderr, "[dash-oam] pose=%02x slot=%03u x=%d y=%u tile=%02x attr=%02x large=%u\n",
-            pose, i, x, y, (unsigned)(ta & 0xff), (unsigned)(ta >> 8), extra >> 1);
+    fprintf(stderr, "[dash-oam] boots=%u pose=%02x slot=%03u x=%d y=%u tile=%02x attr=%02x large=%u\n",
+            boots, pose, i, x, y, (unsigned)(ta & 0xff), (unsigned)(ta >> 8), extra >> 1);
     if (++printed >= 40) break;
   }
-  fprintf(stderr, "[dash-oam] pose=%02x visible-list-size=%u (max reported 40)\n",pose,printed);
+  fprintf(stderr, "[dash-oam] boots=%u pose=%02x visible-list-size=%u (max reported 40)\n",boots,pose,printed);
 }
 
 static void MmxBeforeFrame(void) {
