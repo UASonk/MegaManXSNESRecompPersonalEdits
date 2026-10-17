@@ -118,8 +118,9 @@ bool MmxSaberComboPrePlayer(uint8_t *ram, bool saber_pressed) {
     /* The edge belongs to this window even when allocation cannot succeed. */
     claimed = true;
     state.window_ticks = 0;
-    if (!state.slash_request && !state.slash_request_sent)
-      state.slash_request = reserve_wave_slot(ram);
+    /* Saber Zero's third slash is the end of the combo, not a wave-projectile
+     * launcher. Consume the input edge and close the window without reserving
+     * or spawning the legacy finisher projectile. */
   }
   if (state.window_ticks && !opened_now) --state.window_ticks;
   return claimed;
