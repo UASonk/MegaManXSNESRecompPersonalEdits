@@ -87,7 +87,7 @@ static MmxDashVramSample s_dash_vram_samples[8];
 static unsigned s_dash_vram_sample_count, s_dash_vram_logs;
 static void MmxDashVramDmaStarted(uint8_t bank, uint16_t source,
                                   uint16_t vmadd, uint16_t length) {
-  if (bank != 0xbf || source < 0xf400 || source >= 0x10000u ||
+  if (bank != 0xbf || source < 0xf400 ||
       length != 0x200 || s_dash_vram_logs >= 16) return;
   if (s_dash_vram_sample_count < 8) {
     MmxDashVramSample *sample = &s_dash_vram_samples[s_dash_vram_sample_count++];
