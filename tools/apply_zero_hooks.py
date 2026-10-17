@@ -43,6 +43,11 @@ def apply(text):
                 output.append(line)
                 output.append(f'    {MARKER} {{ extern void MmxZeroDashDmaLookupTrace(unsigned, unsigned, unsigned, unsigned, unsigned); MmxZeroDashDmaLookupTrace(cpu->D, cpu_read8(cpu,0x00,(uint16)(cpu->D+0x17)),cpu->DB,cpu_read16(cpu,0x00,(uint16)(cpu->D+0x31)),{match[1]}); }}\n')
                 continue
+        # Trace queued OBJ DMA after native $84:9013 writes source bank.
+        if pc == 0x849013 and 'cpu_write8' in line and '0x0507 + (uint32)cpu->Y' in line:
+            output.append(line)
+            output.append(f'    {MARKER} {{ extern uint8_t g_ram[0x20000]; extern void MmxZeroDashDmaQueueTrace(unsigned, unsigned, const uint8_t *); MmxZeroDashDmaQueueTrace(cpu->D, cpu->Y, g_ram); }}\n')
+            continue
         if pc in ORIGIN_PCS:
             axis = ORIGIN_PCS[pc]
             store = re.search(r'cpu_write16\(cpu, 0x00, \(uint16\)\(cpu->D \+ 0x000([58])\), (_v\d+)\);', line)
