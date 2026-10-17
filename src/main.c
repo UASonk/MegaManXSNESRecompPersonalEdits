@@ -17,6 +17,7 @@
 #include "mmx_weapon_combat.h"
 #include "mmx_weapons.h"
 #include "snes/cart.h"
+#include "snes/dma.h"
 #include "mmx_spc_player.h"
 #include "mmx_default_config.h"
 #include "mmx_netplay.h"
@@ -76,7 +77,51 @@ bool MmxDisplay_IsWidescreenActive(void) {
 }
 int MmxDisplay_GetCurrentFrameWidth(void) { return snesrecomp_desktop_frame_width(); }
 
+/* Diagnostic: observe actual VRAM DMA starts, then compare VRAM contents
+ * at the next frame boundary against the source ROM tile data. */
+typedef struct MmxDashVramSample {
+  uint8_t bank;
+  uint16_t source, dest, length;
+} MmxDashVramSample;
+static MmxDashVramSample s_dash_vram_samples[8];
+static unsigned s_dash_vram_sample_count, s_dash_vram_logs;
+static void MmxDashVramDmaStarted(uint8_t bank, uint16_t source,
+                                  uint16_t vmadd, uint16_t length) {
+  if (bank != 0xbf || source < 0xf400 || source >= 0x10000u ||
+      length != 0x200 || s_dash_vram_logs >= 16) return;
+  if (s_dash_vram_sample_count < 8) {
+    MmxDashVramSample *sample = &s_dash_vram_samples[s_dash_vram_sample_count++];
+    sample->bank = bank;
+    sample->source = source;
+    sample->dest = vmadd;
+    sample->length = length;
+    fprintf(stderr, "[dash-vram-arm] src=%02x:%04x vram=%04x bytes=%04x\n",
+            bank, source, vmadd, length);
+    ++s_dash_vram_logs;
+  }
+}
+static void MmxDashVramCheck(void) {
+  if (!g_snes || !g_snes->cart || !g_ppu) return;
+  unsigned n = s_dash_vram_sample_count;
+  s_dash_vram_sample_count = 0;
+  for (unsigned i = 0; i < n; ++i) {
+    MmxDashVramSample sample = s_dash_vram_samples[i];
+    uint8_t *source = cart_getRomPtr(g_snes->cart, sample.bank, sample.source);
+    if (!source || sample.dest > 0x7f00 || sample.length != 0x200) continue;
+    unsigned matching = 0;
+    for (unsigned j = 0; j < sample.length; j += 2) {
+      uint16_t pixelword = g_ppu->vram[sample.dest + j / 2];
+      matching += (uint8_t)pixelword == source[j];
+      matching += (uint8_t)(pixelword >> 8) == source[j+1];
+    }
+    fprintf(stderr, "[dash-vram-check] src=%02x:%04x dest=%04x matching=%u/512\n",
+            sample.bank, sample.source, sample.dest, matching);
+  }
+}
+
 static void MmxBeforeFrame(void) {
+  dma_set_vram_notify_hook(MmxDashVramDmaStarted);
+  MmxDashVramCheck();
   if(!MmxReplayPlaying()) {
 #if SNESRECOMP_NET
   MmxCoopViewsSetOnline(snes_netplay_active() && MmxCoopEnabled() && MmxCoopViewsIndependent());
