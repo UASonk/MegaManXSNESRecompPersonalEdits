@@ -92,6 +92,16 @@ void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
     }
     return;
   }
+  /* Native X dash-state and pose trace; unlike the $84:8FF6 interpreter
+   * hook, this runs even when animation lookup is compiled into C. */
+  {
+    static unsigned traces;
+    if (MmxZeroEnabled() && !(ram[0x1f99] & 8) &&
+        ram[0xbaa] == 0x14 && traces++ < 30)
+      fprintf(stderr, "[dash-state] action=%02x animation=%02x pose=%02x flags=%02x graphics=%s\n",
+              ram[0xbaa], ram[0xbbe], ram[0xbbf], ram[0xbc0],
+              dash_art_active ? "remapped" : "original");
+  }
   bool enable = MmxZeroEnabled() && !(ram[0x1f99] & 8);
   if (enable == dash_art_active) return;
   static const uint8_t pairs[6] = {0,0,2,0,0,4};
