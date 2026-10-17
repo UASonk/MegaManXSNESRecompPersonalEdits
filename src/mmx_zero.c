@@ -462,7 +462,7 @@ void MmxZeroSlideTick(uint8_t r[0x20000]) {
   r[0xbaa] = 0x14; r[0xbab] = 0;
 }
 unsigned MmxZeroUpgradeBits(unsigned pc, unsigned original) {
-  if (!MmxZeroActive()) return original;
+  if (!MmxZeroEnabled() || (!MmxZeroActive() && !state.active_x)) return original;
   switch (pc & 0x7fffff) {
     case 0x01971c: case 0x019793: case 0x0198fc: return original | 8;
     default: return original;
@@ -710,10 +710,12 @@ void MmxZeroMovementTick(uint8_t r[0x20000]) {
   if (state.modern.dash_ticks && (!(r[0xbde] & 128) ||
       (r[0xbdf] & (state.modern.dash_facing ? 2 : 1)) || (r[0xc06] & 3)))
     end_air_dash(r);
+  bool dash_started = false;
   if (air_dash_unlocked && air && !state.modern.dash_ticks &&
       !state.modern.dash_used && (r[0xbe2] & 128)) {
     MmxZeroCancel(r);
     state.modern.dash_used = 1; state.modern.dash_ticks = 18;
+    dash_started = true;
     state.modern.dash_facing = (r[0xbdf] & 3) == 1 ? 64 :
         (r[0xbdf] & 3) == 2 ? 0 : r[0xc11] & 64;
     r[0xbaa] = 0x14; r[0xbab] = 0;
@@ -725,6 +727,9 @@ void MmxZeroMovementTick(uint8_t r[0x20000]) {
     r[0xbe3] &= (uint8_t)~128;
     r[0xc11] = state.modern.dash_facing;
     putword(r + 0xbc4, 0);
+    /* Count down once per player frame. Holding dash cannot refresh this timer;
+     * the first frame that starts the dash is counted as a full frame. */
+    if (!dash_started && --state.modern.dash_ticks == 0) end_air_dash(r);
   }
 }
 void MmxZeroPlayerMotion(uint8_t r[0x20000], unsigned object) {
