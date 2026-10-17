@@ -53,21 +53,6 @@ bool MmxGraphicsShouldYield(const CpuState *cpu) {
 #endif
 }
 
-/* Diagnostic only: verify native sprite pose lookup is executed for X's
- * unarmored dash. This hook does not change registers or memory. */
-static void MmxDashPoseLookupTrace(CpuState *cpu, uint32_t pc) {
-  static unsigned seen, dash_seen;
-  (void)pc;
-  if (seen++ < 4)
-    fprintf(stderr, "[dash-trace] lookup hit d=%04x db=%02x pose=%02x boots=%02x\n",
-            cpu->D, cpu->DB, g_ram[0xbbf], g_ram[0x1f99]);
-  if (cpu->D == 0xba8 && (g_ram[0xbbf] & 0x7f) >= 0x36 &&
-      (g_ram[0xbbf] & 0x7f) <= 0x3b && dash_seen++ < 16)
-    fprintf(stderr, "[dash-trace] X dash lookup d=%04x pose=%02x boots=%02x table=%02x%02x\n",
-            cpu->D, g_ram[0xbbf], g_ram[0x1f99],
-            g_ram[0xbd9], g_ram[0xbd8]);
-}
-
 static void MmxGraphicsYieldHook(CpuState *cpu, uint32_t pc) {
   if (MmxGraphicsShouldYield(cpu))
     /* $8127 saves the live coroutine, delays it one tick, and returns to the
@@ -943,7 +928,6 @@ void RunOneFrameOfGame(void) {
   s_graphics_frame_active = g_did_reset;
 #if !MMX_VARIANT_JP
   interp_bridge_set_pre_opcode_hook(0x008121, MmxGraphicsYieldHook);
-  interp_bridge_set_pre_opcode_hook(0x848ff6, MmxDashPoseLookupTrace);
   if (!MmxCoopEnabled()) {
     static const uint32_t culls[] = {0x82807d,0x82809e,0x8280c3,0x838957};
     for (unsigned i=0;i<sizeof(culls)/sizeof(culls[0]);++i)
