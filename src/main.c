@@ -89,6 +89,7 @@ static void MmxBeforeFrame(void) {
   snes_set_hdma_beam_enabled(g_snes, false);
   if (g_snes->cart) {
     MmxZeroSetCollisionRom(g_snes->cart->rom, g_snes->cart->romSize);
+    MmxZeroDashArtRom(g_snes->cart->rom, g_snes->cart->romSize, g_ram);
     MmxWeaponsCollisionRom(g_snes->cart->rom, g_snes->cart->romSize);
     MmxCoopHostFrame();
     MmxBossRushHostFrame();
