@@ -27,6 +27,77 @@ _Static_assert(offsetof(MmxZeroState, modern) == MMX_ZERO_HEALTH_STATE_SIZE,
                "Keep the v8-v14 Zero state prefix readable");
 static unsigned word(const uint8_t *p) { return p[0] | p[1] << 8; }
 static void putword(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+/* The vanilla game never dashes without boots, so the dash poses upload
+ * armored-leg graphics. Provide normal-leg graphics only before the capsule.
+ * The original boots inventory flag remains intact for air-dash progression.
+ * Reference: llethas/mmx_sa-1_plus, extra_options_for_mmxsa1.asm, §8.
+ * No generated code or OAM paths are modified. Fail closed on unknown ROMs.
+ */
+#include "mmx_unarmored_dash_tiles.inc"
+static uint8_t *dash_art_rom;
+static size_t dash_art_rom_size;
+static bool dash_art_checked, dash_art_ready, dash_art_active;
+static size_t dash_art_list[6], dash_art_offset;
+static uint8_t dash_art_original[6][6];
+void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
+  if (!rom || !ram) return;
+  if (rom != dash_art_rom || size != dash_art_rom_size) {
+    dash_art_rom = rom; dash_art_rom_size = size;
+    dash_art_checked = dash_art_ready = dash_art_active = false;
+  }
+  if (!dash_art_checked) {
+    dash_art_checked = true;
+    if (size < 0x40000 || size > 0x200000) return;
+    /* Bank $85 pose-DMA table base $A597, with relative record offsets. */
+    for (unsigned i = 0; i < 6; ++i) {
+      size_t entry = 0x2a597u + (0x36u + i) * 2u;
+      if (entry + 2 > size) return;
+      size_t list = 0x2a597u + word(rom + entry);
+      if (list < 0x28000u || list + 10 > 0x30000u || list + 10 > size ||
+          rom[list] != 0x20 || rom[list+5] != 0x20 ||
+          !(rom[list+9] & 0x80)) return;
+      dash_art_list[i] = list;
+      memcpy(dash_art_original[i], rom + list + 1, 3);
+      memcpy(dash_art_original[i] + 3, rom + list + 6, 3);
+    }
+    /* Find 3072 bytes of confirmed $FF padding wholly within one
+     * bank's CPU-readable $8000-$FFFF half. Never enlarge the ROM. */
+    size_t limit = size & ~(size_t)0x1ff;
+    for (size_t off = limit; off >= 0x40000u + sizeof(mmx_unarmored_dash_tiles); ) {
+      off -= 0x200;
+      if ((off & 0x7fff) > 0x7400 || off + sizeof(mmx_unarmored_dash_tiles) > size) continue;
+      bool blank = true;
+      for (size_t j = 0; j < sizeof(mmx_unarmored_dash_tiles); ++j)
+        if (rom[off+j] != 0xff) { blank = false; break; }
+      if (!blank) continue;
+      dash_art_offset = off;
+      memcpy(rom + off, mmx_unarmored_dash_tiles, sizeof(mmx_unarmored_dash_tiles));
+      dash_art_ready = true;
+      break;
+    }
+  }
+  if (!dash_art_ready) return;
+  bool enable = MmxZeroEnabled() && !(ram[0x1f99] & 8);
+  if (enable == dash_art_active) return;
+  static const uint8_t pairs[6] = {0,0,2,0,0,4};
+  for (unsigned i = 0; i < 6; ++i) {
+    size_t list = dash_art_list[i];
+    if (enable) {
+      for (unsigned k = 0; k < 2; ++k) {
+        size_t off = dash_art_offset + (pairs[i] + k) * 512u;
+        unsigned address = 0x8000u + (unsigned)(off & 0x7fffu);
+        rom[list + 1 + k * 5] = (uint8_t)address;
+        rom[list + 2 + k * 5] = (uint8_t)(address >> 8);
+        rom[list + 3 + k * 5] = (uint8_t)(0x80u + (off >> 15));
+      }
+    } else {
+      memcpy(rom + list + 1, dash_art_original[i], 3);
+      memcpy(rom + list + 6, dash_art_original[i] + 3, 3);
+    }
+  }
+  dash_art_active = enable;
+}
+
 MmxZeroState MmxZeroGetState(void) { return state; }
 /* The selected starting character, also shown on title and menus until the
  * first exchange. Co-op never selects it and keeps Zero. */
