@@ -128,6 +128,14 @@ void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
   fprintf(stderr, "[dash-art] sprite DMA records %s (boots=%u)\n", enable ? "replaced" : "restored", !!(ram[0x1f99] & 8));
 }
 
+/* Diagnostic for the compiled $84:8FCA graphics record selection. */
+void MmxZeroDashDmaLookupTrace(unsigned d, unsigned pose, unsigned bank,
+                               unsigned base, unsigned offset) {
+  static unsigned count;
+  if (d == 0xba8 && (pose & 0x7f) >= 0x36 && (pose & 0x7f) <= 0x3b && count++ < 24)
+    fprintf(stderr, "[dash-lookup] dp=%04x pose=%02x db=%02x table=%04x record-offset=%04x\n",
+            d, pose, bank, base, offset);
+}
 MmxZeroState MmxZeroGetState(void) { return state; }
 /* The selected starting character, also shown on title and menus until the
  * first exchange. Co-op never selects it and keeps Zero. */
