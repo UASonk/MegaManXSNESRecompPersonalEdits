@@ -47,15 +47,23 @@ void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
   }
   if (!dash_art_checked) {
     dash_art_checked = true;
-    if (size < 0x40000 || size > 0x200000) return;
+    if (size < 0x40000 || size > 0x200000) {
+      fprintf(stderr, "[dash-art] unsupported ROM size: %zu\n", size);
+      return;
+    }
     /* Bank $85 pose-DMA table base $A597, with relative record offsets. */
     for (unsigned i = 0; i < 6; ++i) {
       size_t entry = 0x2a597u + (0x36u + i) * 2u;
-      if (entry + 2 > size) return;
+      if (entry + 2 > size) { fprintf(stderr, "[dash-art] pose table out of range\n"); return; }
       size_t list = 0x2a597u + word(rom + entry);
       if (list < 0x28000u || list + 10 > 0x30000u || list + 10 > size ||
           rom[list] != 0x20 || rom[list+5] != 0x20 ||
-          !(rom[list+9] & 0x80)) return;
+          !(rom[list+9] & 0x80)) {
+        fprintf(stderr, "[dash-art] pose %02X record mismatch: table=%05zx record=%05zx first=%02x second=%02x end=%02x\n",
+                0x36u + i, entry, list, list<size?rom[list]:0, list+5<size?rom[list+5]:0,
+                list+9<size?rom[list+9]:0);
+        return;
+      }
       dash_art_list[i] = list;
       memcpy(dash_art_original[i], rom + list + 1, 3);
       memcpy(dash_art_original[i] + 3, rom + list + 6, 3);
@@ -73,10 +81,17 @@ void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
       dash_art_offset = off;
       memcpy(rom + off, mmx_unarmored_dash_tiles, sizeof(mmx_unarmored_dash_tiles));
       dash_art_ready = true;
+      fprintf(stderr, "[dash-art] loaded unarmored tiles at ROM offset %05zx\n", off);
       break;
     }
   }
-  if (!dash_art_ready) return;
+  if (!dash_art_ready) {
+    if (dash_art_checked && !dash_art_active) { /* Suppress repetition after first report. */
+      static bool warned;
+      if (!warned) { fprintf(stderr, "[dash-art] no validated 3072-byte ROM padding found; patch inactive\n"); warned = true; }
+    }
+    return;
+  }
   bool enable = MmxZeroEnabled() && !(ram[0x1f99] & 8);
   if (enable == dash_art_active) return;
   static const uint8_t pairs[6] = {0,0,2,0,0,4};
@@ -96,6 +111,7 @@ void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
     }
   }
   dash_art_active = enable;
+  fprintf(stderr, "[dash-art] sprite DMA records %s (boots=%u)\n", enable ? "replaced" : "restored", !!(ram[0x1f99] & 8));
 }
 
 MmxZeroState MmxZeroGetState(void) { return state; }
