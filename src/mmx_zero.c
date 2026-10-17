@@ -64,6 +64,10 @@ void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]) {
                 list+9<size?rom[list+9]:0);
         return;
       }
+      if (i < 3)
+        fprintf(stderr, "[dash-record] pose=%02x record=%05zx src1=%02x:%02x%02x flag1=%02x src2=%02x:%02x%02x flag2=%02x\n",
+                0x36u+i, list, rom[list+3], rom[list+2], rom[list+1], rom[list+4],
+                rom[list+8], rom[list+7], rom[list+6], rom[list+9]);
       dash_art_list[i] = list;
       memcpy(dash_art_original[i], rom + list + 1, 3);
       memcpy(dash_art_original[i] + 3, rom + list + 6, 3);
