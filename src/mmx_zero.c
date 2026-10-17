@@ -136,7 +136,7 @@ void MmxZeroDashDmaLookupTrace(unsigned d, unsigned pose, unsigned bank,
     fprintf(stderr, "[dash-lookup] dp=%04x pose=%02x db=%02x table=%04x record-offset=%04x\n",
             d, pose, bank, base, offset);
 }
-/* DMA queue slot: $0500+Y, command $00, destination $03, source $05/$07.
+/* DMA queue slot: $0500+Y, command $00, destination $01, size $03, source $05/$07.
  * Read only: verifies the native routine actually queues relocated artwork. */
 void MmxZeroDashDmaQueueTrace(unsigned d, unsigned y, const uint8_t *ram) {
   static unsigned count;
@@ -144,8 +144,8 @@ void MmxZeroDashDmaQueueTrace(unsigned d, unsigned y, const uint8_t *ram) {
       (ram[0xbbf] & 0x7f) > 0x3b || y > 0x7f0) return;
   ++count;
   const uint8_t *q = ram + 0x500 + y;
-  fprintf(stderr, "[dash-dma] pose=%02x y=%04x command=%02x dest=%02x%02x source=%02x:%02x%02x\n",
-          ram[0xbbf], y, q[0], q[4], q[3], q[7], q[6], q[5]);
+  fprintf(stderr, "[dash-dma] pose=%02x y=%04x command=%02x dest=%02x%02x length=%02x%02x source=%02x:%02x%02x\n",
+          ram[0xbbf], y, q[0], q[2], q[1], q[4], q[3], q[7], q[6], q[5]);
 }
 MmxZeroState MmxZeroGetState(void) { return state; }
 /* The selected starting character, also shown on title and menus until the
