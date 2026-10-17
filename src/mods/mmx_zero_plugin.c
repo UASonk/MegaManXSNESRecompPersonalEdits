@@ -66,7 +66,7 @@ static void hook(CpuState *cpu, uint32_t pc) {
     case 0x009dca: MmxZeroHealthRespawn(g_ram); break;
     case 0x00d6a7: MmxRendererObserveObject(g_ram, (uint16_t)(cpu->D + cpu->X)); break;
     case 0x00d76a: MmxRendererRecordPiece(g_ram, cpu->D); break;
-    case 0x01971f: case 0x019796: case 0x0198ff: if (MmxZeroActive()) cpu->A |= 8; break;
+    case 0x01971f: case 0x019796: case 0x0198ff: if (MmxZeroEnabled()) cpu->A |= 8; break;
     case 0x01815c:
       MmxZeroExtPrePlayer(g_ram);
       MmxZeroSlideTick(g_ram);

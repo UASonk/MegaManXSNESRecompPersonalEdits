@@ -129,4 +129,7 @@ bool MmxZeroModern(void);
 void MmxZeroMovementTick(uint8_t ram[0x20000]);
 void MmxZeroPlayerMotion(uint8_t ram[0x20000], unsigned object);
 void MmxZeroCancel(uint8_t ram[0x20000]);
+/* Saber Zero suppresses legacy buster charge/burst state without cancelling
+ * its independent Saber slash or finisher animation. */
+void MmxZeroDisableBuster(uint8_t ram[0x20000]);
 void MmxZeroRegisterHooks(void);

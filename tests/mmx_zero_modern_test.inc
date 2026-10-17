@@ -44,6 +44,13 @@ static void modern_checks(const char *assets,const char *fixture,uint8 *start,
     check(!MmxZeroGetState().slash && (g_ram[0xbdf]&8),
         "ladder input cancels swing without losing native Up input");
     modern_fixture(fixture);
+    g_ram[0x1f99] &= (uint8_t)~8;
+    for(unsigned i=0;i<10;++i) frame(SNES_PAD_B);
+    frame(SNES_PAD_Y);zero_replay(3);frame(SNES_PAD_A|SNES_PAD_RIGHT);
+    check(!MmxZeroGetState().modern.dash_ticks,
+        "air dash remains locked before the Chill Penguin boots capsule");
+    modern_fixture(fixture);
+    g_ram[0x1f99] |= 8;
     for(unsigned i=0;i<10;++i) frame(SNES_PAD_B);
     frame(SNES_PAD_Y);zero_replay(3);frame(SNES_PAD_A|SNES_PAD_RIGHT);
     check(!MmxZeroGetState().slash && MmxZeroGetState().modern.dash_ticks &&
@@ -55,12 +62,33 @@ static void modern_checks(const char *assets,const char *fixture,uint8 *start,
     frame(SNES_PAD_Y);zero_replay(8);
     check((g_ram[0xbd3]&4) && MmxZeroGetState().slash && modern_y()==ground,
         "landing alone retains the active saber swing");
+    modern_fixture(fixture);
+    MmxZeroSetStartCharacter(true); MmxZeroResetState();
+    g_ram[0x1f99] &= (uint8_t)~8;
+    unsigned ground_dash_x = modern_x();
+    frame(SNES_PAD_A | SNES_PAD_RIGHT);
+    check(g_ram[0xbaa] == 0x14 && modern_x() > ground_dash_x,
+        "X can ground dash from the start without the boots inventory bit");
+    frame(0);
+    modern_fixture(fixture);
+    MmxZeroSetStartCharacter(true); MmxZeroResetState();
+    g_ram[0x1f99] &= (uint8_t)~8;
+    for(unsigned i=0;i<10;++i) frame(SNES_PAD_B);
+    frame(SNES_PAD_A|SNES_PAD_RIGHT);
+    check(!MmxZeroGetState().modern.dash_ticks,
+        "X air dash stays locked before the Chill Penguin capsule");
+    frame(0); g_ram[0x1f99] |= 8;
+    frame(SNES_PAD_A|SNES_PAD_RIGHT);
+    check(MmxZeroGetState().modern.dash_ticks,
+        "X gains air dash after the Chill Penguin capsule");
+    MmxZeroSetStartCharacter(false); MmxZeroResetState();
     puts("MMX MODERN SABER MOVEMENT CHECKS PASSED");return;
   }
   /* Compare against the same airborne trajectory without attacking. These
    * exercise the native input-to-velocity controller, not just adapter RAM. */
   for(unsigned dash=0;dash<2;++dash) {
     modern_fixture(fixture);
+    if(dash) g_ram[0x1f99] |= 8;
     for(unsigned i=0;i<10;++i) frame(SNES_PAD_B|SNES_PAD_RIGHT);
     if(dash) for(unsigned i=0;i<4;++i) frame(SNES_PAD_A|SNES_PAD_RIGHT);
     size_t before_n=RtlSaveSnapshotToMemory(start,cap);
@@ -102,6 +130,7 @@ static void modern_checks(const char *assets,const char *fixture,uint8 *start,
   check((int16_t)(g_ram[0xbc4]|g_ram[0xbc5]<<8)<0x500,"third jump does not reset upward velocity");
   modern_image("double-jump");
   frame(0); unsigned x=modern_x(),y=modern_y();
+  g_ram[0x1f99] |= 8; /* Chill Penguin's boots capsule unlocks air dash. */
   frame(SNES_PAD_A|SNES_PAD_RIGHT);
   for(unsigned i=0;i<8;++i) frame(SNES_PAD_A|SNES_PAD_RIGHT);
   printf("dash: dx=%d dy=%d action=%x remaining=%u flags=%x/%x\n",(int)modern_x()-x,(int)modern_y()-y,g_ram[0xbaa],MmxZeroGetState().modern.dash_ticks,g_ram[0xbd3],g_ram[0xc06]);
@@ -135,6 +164,7 @@ static void modern_checks(const char *assets,const char *fixture,uint8 *start,
     frame(0);frame(SNES_PAD_B);
     check(MmxZeroGetState().modern.jump_used,"extra jump works with imported special selected");
     frame(0);unsigned y=modern_y();
+    g_ram[0x1f99] |= 8;
     for(unsigned i=0;i<6;++i) frame(SNES_PAD_A|SNES_PAD_RIGHT);
     check(MmxZeroGetState().modern.dash_ticks && modern_y()==y,"air dash works with imported special selected");
   }

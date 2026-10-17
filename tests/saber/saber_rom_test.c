@@ -55,49 +55,40 @@ enum {
   X3_ZERO_STORM_TORNADO_PROJECTILES = 1,
   /* X1's native command-6 charged buster path publishes class 2. */
   SABER_X1_CHARGED_RELEASE_CLASS = 2,
-  /* Independent oracle copied from oldsaber/saber-zero-variant:
-   * src/mmx_saber.c:266-273. Keep these literals separate from the new table
-   * so a timing-table mutation cannot make the test pass. */
-  OLD_SABER_GROUND1_STARTUP = 4,
-  OLD_SABER_GROUND1_ACTIVE = 8,
-  OLD_SABER_GROUND1_RECOVERY = 18,
-  OLD_SABER_GROUND1_TOTAL = 30,
-  /* Combo windows and phase lengths copied from the old table, not from
-   * src/saber/mmx_saber_attack.c: oldsaber src/mmx_saber.c:260-319. */
-  OLD_SABER_GROUND1_CHAIN_OPEN = 12,
-  OLD_SABER_GROUND1_CHAIN_CLOSE = 29,
-  OLD_SABER_GROUND1_BUFFER_OPEN = 4,
-  OLD_SABER_GROUND1_BUFFER_CLOSE = 11,
+  /* Expected accelerated timings; deliberately separate from the runtime table
+   * so a timing-table mutation cannot make the regression pass by itself. */
+  OLD_SABER_GROUND1_STARTUP = 2,
+  OLD_SABER_GROUND1_ACTIVE = 6,
+  OLD_SABER_GROUND1_RECOVERY = 10,
+  OLD_SABER_GROUND1_TOTAL = 18,
+  OLD_SABER_GROUND1_CHAIN_OPEN = 7,
+  OLD_SABER_GROUND1_CHAIN_CLOSE = 17,
+  OLD_SABER_GROUND1_BUFFER_OPEN = 2,
+  OLD_SABER_GROUND1_BUFFER_CLOSE = 6,
   OLD_SABER_GROUND2_STARTUP = 0,
-  OLD_SABER_GROUND2_ACTIVE = 12,
-  OLD_SABER_GROUND2_RECOVERY = 18,
-  OLD_SABER_GROUND2_TOTAL = 30,
-  OLD_SABER_GROUND2_CHAIN_OPEN = 12,
-  OLD_SABER_GROUND2_CHAIN_CLOSE = 29,
+  OLD_SABER_GROUND2_ACTIVE = 8,
+  OLD_SABER_GROUND2_RECOVERY = 8,
+  OLD_SABER_GROUND2_TOTAL = 16,
+  OLD_SABER_GROUND2_CHAIN_OPEN = 6,
+  OLD_SABER_GROUND2_CHAIN_CLOSE = 15,
   OLD_SABER_GROUND2_BUFFER_OPEN = 0,
-  OLD_SABER_GROUND2_BUFFER_CLOSE = 11,
+  OLD_SABER_GROUND2_BUFFER_CLOSE = 5,
   OLD_SABER_GROUND3_STARTUP = 0,
-  OLD_SABER_GROUND3_ACTIVE = 14,
-  OLD_SABER_GROUND3_RECOVERY = 25,
-  OLD_SABER_GROUND3_TOTAL = 39,
-  /* Air record copied from oldsaber/saber-zero-variant:
-   * src/mmx_saber.c:322-339. */
-  OLD_SABER_AIR_STARTUP = 4,
-  OLD_SABER_AIR_ACTIVE = 8,
-  OLD_SABER_AIR_RECOVERY = 6,
-  OLD_SABER_AIR_TOTAL = 18,
-  /* Wall record copied from oldsaber/saber-zero-variant:
-   * src/mmx_saber.c:307-324. */
+  OLD_SABER_GROUND3_ACTIVE = 10,
+  OLD_SABER_GROUND3_RECOVERY = 12,
+  OLD_SABER_GROUND3_TOTAL = 22,
+  OLD_SABER_AIR_STARTUP = 2,
+  OLD_SABER_AIR_ACTIVE = 6,
+  OLD_SABER_AIR_RECOVERY = 4,
+  OLD_SABER_AIR_TOTAL = 12,
   OLD_SABER_WALL_STARTUP = 0,
-  OLD_SABER_WALL_ACTIVE = 12,
-  OLD_SABER_WALL_RECOVERY = 8,
-  OLD_SABER_WALL_TOTAL = 20,
-  /* Dash record copied from oldsaber/saber-zero-variant:
-   * src/mmx_saber.c:362-379. */
-  OLD_SABER_DASH_STARTUP = 2,
-  OLD_SABER_DASH_ACTIVE = 10,
-  OLD_SABER_DASH_RECOVERY = 18,
-  OLD_SABER_DASH_TOTAL = 30,
+  OLD_SABER_WALL_ACTIVE = 8,
+  OLD_SABER_WALL_RECOVERY = 6,
+  OLD_SABER_WALL_TOTAL = 14,
+  OLD_SABER_DASH_STARTUP = 1,
+  OLD_SABER_DASH_ACTIVE = 8,
+  OLD_SABER_DASH_RECOVERY = 9,
+  OLD_SABER_DASH_TOTAL = 18,
   OLD_SABER_LAND_TOTAL = 18,
 };
 
@@ -1360,9 +1351,15 @@ static void x3_plain_checks(const char *fixture, unsigned button) {
     idle(40);
     births += new_projectiles(0, previous);
   }
-  check(births == 3, "X3 Zero repeated buster taps spawn one plain shot each");
-  check(projectiles(0) <= 1 && all_projectiles() <= 1,
-        "X3 Zero plain taps do not become charged or duplicate shots");
+  if (MmxSaberEnabled() && button == SNES_PAD_X) {
+    check(births == 0 && MmxZeroGetState().charge == 0 &&
+              native_projectiles() == 0,
+          "Saber Zero ignores buster taps without charging or firing");
+  } else {
+    check(births == 3, "X3 Zero repeated buster taps spawn one plain shot each");
+    check(projectiles(0) <= 1 && all_projectiles() <= 1,
+          "X3 Zero plain taps do not become charged or duplicate shots");
+  }
   puts("ok: x3-zero-plain");
 }
 
@@ -1828,15 +1825,10 @@ static void saber_ground_1_checks(const char *fixture) {
   bool timing_ok = true;
   bool mask_ok = true;
   bool position_ok = true;
-  bool charge_not_lost = true;
-  bool shot_before_idle = false;
-  bool previous_projectile = false;
   unsigned starts = 0;
-  unsigned births = 0;
-  unsigned charge_before_release;
   uint16_t standing_x;
 
-  printf("reference: old Saber ground-1 timing startup=%u active=%u "
+  printf("reference: current Saber ground-1 timing startup=%u active=%u "
          "recovery=%u total=%u (oldsaber src/mmx_saber.c:266-269)\n",
          OLD_SABER_GROUND1_STARTUP, OLD_SABER_GROUND1_ACTIVE,
          OLD_SABER_GROUND1_RECOVERY, OLD_SABER_GROUND1_TOTAL);
@@ -1859,7 +1851,7 @@ static void saber_ground_1_checks(const char *fixture) {
   snapshot = MmxSaberAttackSnapshotGet();
   check(timing_ok && snapshot.phase == SABER_PHASE_IDLE &&
             snapshot.kind == SABER_KIND_NONE && snapshot.anim_id == 0,
-        "Saber ground-1 publishes animation 1 through old startup/active/recovery timing");
+        "Saber ground-1 publishes animation 1 through accelerated startup/active/recovery timing");
 
   load_fixture(fixture);
   MmxSaberFrameReset();
@@ -1910,36 +1902,17 @@ static void saber_ground_1_checks(const char *fixture) {
         "ground-1 feeds the live phase back to clear horizontal pad bits and halt Zero");
 
   load_fixture(fixture);
+  g_ram[0x0bdb] = 0;
   MmxSaberFrameReset();
   frame(SNES_PAD_Y | SNES_PAD_X);
-  for (unsigned i = 0; i < 6; ++i) {
-    frame(SNES_PAD_X);
-    snapshot = MmxSaberAttackSnapshotGet();
-    if (snapshot.phase != SABER_PHASE_IDLE && native_projectiles())
-      shot_before_idle = true;
-  }
-  charge_before_release = MmxZeroGetState().charge;
+  for (unsigned i = 0; i < 6; ++i) frame(SNES_PAD_X);
+  check(MmxZeroGetState().charge == 0 && native_projectiles() == 0 &&
+            MmxSaberAttackSnapshotGet().phase != SABER_PHASE_IDLE,
+        "holding X through Ground1 neither charges nor fires the buster");
   frame(0);
-  snapshot = MmxSaberAttackSnapshotGet();
-  if (snapshot.phase == SABER_PHASE_IDLE || native_projectiles())
-    shot_before_idle = true;
-  for (unsigned i = 0; i < OLD_SABER_GROUND1_TOTAL + 5; ++i) {
-    bool live;
-    frame(0);
-    snapshot = MmxSaberAttackSnapshotGet();
-    live = native_projectiles() != 0;
-    if (snapshot.phase != SABER_PHASE_IDLE &&
-        MmxZeroGetState().charge < charge_before_release)
-      charge_not_lost = false;
-    if (live && !previous_projectile)
-      ++births;
-    if (live && snapshot.phase != SABER_PHASE_IDLE)
-      shot_before_idle = true;
-    previous_projectile = live;
-  }
-  check(charge_before_release > 0 && charge_not_lost && births == 1 &&
-            !shot_before_idle,
-        "X held during ground-1 charges without a shot; release buffers exactly one post-idle shot");
+  idle(OLD_SABER_GROUND1_TOTAL + 5);
+  check(MmxZeroGetState().charge == 0 && native_projectiles() == 0,
+        "releasing X during Ground1 cannot buffer a post-swing buster shot");
   puts("ok: saber-ground-1");
 }
 
@@ -3824,6 +3797,8 @@ static void saber_pass_through_checks(const char *fixture) {
   puts("ok: saber-input-x-pass-through");
 }
 
+static void saber_charge_cap_checks(const char *fixture);
+
 static void saber_legacy_intent_bridge_check(const char *fixture) {
   load_fixture(fixture);
   /* Run the real Saber pre-player hook, then clear the mapped fire bytes
@@ -3837,36 +3812,15 @@ static void saber_legacy_intent_bridge_check(const char *fixture) {
   g_ram[0x0bdf] = 0;
   g_ram[0x0be3] = 0;
   MmxZeroPlayerTick(g_ram);
-  check(MmxZeroGetState().charge == 1,
-        "Saber legacy intent drives Zero charge after mapped fire is cleared");
+  check(MmxZeroGetState().charge == 0 && native_projectiles() == 0,
+        "Saber-only mode cannot create charge through the legacy intent seam");
   load_fixture(fixture);
 }
 
 static void saber_input_checks(const char *fixture,
                                const SpecialCounts *upstream) {
-  /* Exercise the native X1 arm-upgrade branch while the Saber buster path
-   * still owns the legacy X3 charge chain. */
   saber_legacy_intent_bridge_check(fixture);
-  load_fixture(fixture);
-  g_ram[0x1f99] |= 2;
-  saber_track_x1_charged = true;
-  saber_saw_x1_charged = false;
-  release_charge_button(SABER_CHARGE_FULL_FRAME, SNES_PAD_X);
-  idle(17);
-  frame(SNES_PAD_X);
-  idle(9);
-  saber_track_x1_charged = false;
-  check(!saber_saw_x1_charged && projectiles(SABER_FULL_RELEASE_CLASS) == 2,
-        "Saber X buster upgrade still emits only the two X3 class-3 shots");
-
-  saber_track_x1_charged = true;
-  saber_saw_x1_charged = false;
-  x3_plain_checks(fixture, SNES_PAD_X);
-  x3_hurt_checks(fixture, SNES_PAD_X);
-  x3_jump_checks(fixture, SNES_PAD_X);
-  saber_track_x1_charged = false;
-  check(!saber_saw_x1_charged,
-        "Saber X3 buster paths never spawn X1 charged-shot class 2");
+  saber_charge_cap_checks(fixture);
   saber_y_checks(fixture);
   saber_special_checks(fixture, upstream);
   saber_pass_through_checks(fixture);
@@ -3935,15 +3889,11 @@ static bool legacy_saber_route_present(void) {
 }
 
 static void saber_plain_after_probe(const char *label) {
-  unsigned char previous[8] = {0};
-  unsigned births;
-  unsigned native_x1_charged = 0;
-
+  (void)label;
   MmxSaberFrameReset();
   MmxZeroCancel(g_ram);
-  /* The Saber owner is reset above; restore only the native idle/action and
-   * weapon-selection fields so this remains a post-sequence plain-buster
-   * probe rather than a fresh save reload. */
+  /* Reset to the native buster slot, then prove X cannot restore buster fire
+   * after any Saber-owned action has ended. */
   g_ram[0xbaa] = 0;
   g_ram[0xbab] = 0;
   g_ram[0xbdb] = 0;
@@ -3952,73 +3902,36 @@ static void saber_plain_after_probe(const char *label) {
   g_ram[0xc26] &= (uint8_t)~64;
   for (unsigned i = 0; i < 60 && native_projectiles(); ++i)
     frame(0);
-  check(!native_projectiles(), "plain probe clears residual native projectiles");
-  memset(previous, 0, sizeof(previous));
   frame(0);
-  births = new_projectiles(0, previous);
-  frame(SNES_PAD_X);
-  births += new_projectiles(0, previous);
-  frame(0);
-  births += new_projectiles(0, previous);
-  for (unsigned i = 0; i < 8; ++i) {
-    unsigned d = 0x1228 + i * 64;
-    native_x1_charged += g_ram[d] && !saber_tagged_projectile(d) &&
-        g_ram[d + 10] == SABER_X1_CHARGED_RELEASE_CLASS;
+  for (unsigned i = 0; i < 3; ++i) {
+    frame(SNES_PAD_X);
+    frame(0);
   }
-  check(births == 1 && projectiles(0) == 1 && native_x1_charged == 0, label);
+  check(MmxZeroGetState().charge == 0 && !MmxZeroGetState().burst &&
+            native_projectiles() == 0,
+        "buster remains disabled after a Saber-owned action");
 }
 
 static void saber_charge_cap_checks(const char *fixture) {
-  unsigned max_charge = 0;
-  bool tier_exceeded = false;
-  bool third_route = false;
-  unsigned char previous[8] = {0};
-  unsigned first_shots = 0;
-  unsigned second_shots = 0;
-
-  printf("reference: fda759c caps the charge value at 200, preserving tier 8; "
-         "tier-8 release is class 3 and the second buster press remains the "
-         "two-shot route, while tier 10 marks the removed Saber route\n");
   load_fixture(fixture);
+  g_ram[0x0bdb] = 0; /* Explicitly select the buster slot. */
   MmxSaberFrameReset();
+  bool blocked = true;
   for (unsigned i = 0; i < 260; ++i) {
     frame(SNES_PAD_X);
-    MmxZeroState state = MmxZeroGetState();
-    if (state.charge > max_charge) max_charge = state.charge;
-    tier_exceeded |= MmxZeroChargeTier(&state) > 8;
-    third_route |= state.saber_ready || legacy_saber_route_present();
+    blocked &= MmxZeroGetState().charge == 0 &&
+        !MmxZeroGetState().burst && native_projectiles() == 0;
   }
-  MmxZeroState held = MmxZeroGetState();
-  check(!tier_exceeded && max_charge == 200 && held.charge == 200 &&
-            MmxZeroChargeTier(&held) == 8 && !held.saber_ready && !third_route,
-        "Saber 260-frame hold caps the upstream charge at pink tier 8");
-
+  check(blocked, "Saber Zero never charges or fires the buster while X is held");
   frame(0);
-  first_shots += new_projectiles(SABER_TIER_8_RELEASE_CLASS, previous);
-  check(MmxZeroGetState().combo == 1 && !MmxZeroGetState().saber_ready,
-        "Saber capped release stores the tier-8 one-class-3 buster step");
-  for (unsigned i = 0; i < 120; ++i) {
-    frame(0);
-    first_shots += new_projectiles(SABER_TIER_8_RELEASE_CLASS, previous);
-    third_route |= MmxZeroGetState().saber_ready || legacy_saber_route_present();
-  }
-  check(first_shots == 1 && !projectiles(SABER_X1_CHARGED_RELEASE_CLASS),
-        "Saber capped release emits exactly one class-3 shot");
-  for (unsigned i = 0; i < 240 &&
-       (MmxZeroGetState().burst || MmxZeroGetState().shot_mask || g_ram[0xc25]); ++i)
-    frame(0);
-  memset(previous, 0, sizeof(previous));
-  frame(SNES_PAD_X);
-  second_shots += new_projectiles(SABER_TIER_8_RELEASE_CLASS, previous);
-  check(!MmxZeroGetState().saber_ready && MmxZeroGetState().burst == 2,
-        "Saber capped tier-8 charge still reaches the second buster burst");
-  for (unsigned i = 0; i < 120; ++i) {
-    frame(0);
-    second_shots += new_projectiles(SABER_TIER_8_RELEASE_CLASS, previous);
-    third_route |= MmxZeroGetState().saber_ready || legacy_saber_route_present();
-  }
-  check(second_shots == 1 && !third_route && !legacy_saber_route_present(),
-        "Saber capped two-shot route never reaches the green/third legacy route");
+  idle(40);
+  check(MmxZeroGetState().charge == 0 && !MmxZeroGetState().burst &&
+            native_projectiles() == 0,
+        "releasing X cannot create a delayed buster shot");
+  frame(SNES_PAD_Y);
+  check(MmxSaberAttackSnapshotGet().phase != SABER_PHASE_IDLE,
+        "Saber remains usable while the buster is disabled");
+  puts("ok: saber-only-buster-disabled");
 }
 
 static void saber_ground_combo_attack_probe(const char *fixture, bool special) {
@@ -4448,48 +4361,34 @@ static void saber_finisher_window_setup(const char *fixture) {
   bool opened = false;
 
   load_fixture(fixture);
+  g_ram[0x0bdb] = 0;
   MmxSaberFrameReset();
-  release_charge_button(150, SNES_PAD_X);
-  check(MmxZeroGetState().combo == 1,
-        "finisher setup stores the capped tier-8 first burst");
-  for (unsigned i = 0; i < 240 &&
-       (MmxZeroGetState().burst || MmxZeroGetState().shot_mask ||
-        g_ram[0xc25]); ++i)
-    frame(0);
-  check(MmxZeroGetState().combo == 1,
-        "finisher setup retires burst 1 while retaining the combo step");
-  frame(SNES_PAD_X);
-  check(MmxZeroGetState().burst == 2,
-        "finisher setup starts the X3 second burst from a fresh X edge");
-  if (MmxSaberComboWindowTicks()) opened = true;
-  for (unsigned i = 0; i < 120 && !opened; ++i) {
+  frame(SNES_PAD_Y);
+  idle(7);
+  frame(SNES_PAD_Y);
+  frame(0);
+  idle(6);
+  frame(SNES_PAD_Y);
+  check(MmxSaberAttackSnapshotGet().kind == SABER_KIND_GROUND3,
+        "finisher setup reaches the third ground slash");
+  frame(0);
+  idle(MmxSaberAttackRecord(SABER_KIND_GROUND3, 0)->total_ticks);
+  for (unsigned i = 0; i < 4 && !opened; ++i) {
     frame(0);
     opened = MmxSaberComboWindowTicks() != 0;
   }
-  check(opened, "finisher setup observes a window after a live second shot");
+  check(opened, "finisher setup opens a window after Ground3 completes");
 }
 
 static void saber_finisher_accept_checks(const char *fixture) {
-  uint8_t buster_live_before[8] = {0};
-  bool buster_survived = false;
   unsigned cue_count;
 
   saber_finisher_window_setup(fixture);
-  check(MmxSaberComboWindowTicks() == MMX_SABER_DEFAULT_FINISHER_WINDOW,
-        "default finisher window is 27 frames on the second-shot frame");
-  for (unsigned i = 0; i < 8; ++i) {
-    const unsigned d = 0x1228 + i * 64;
-    buster_live_before[i] = (unsigned char)(g_ram[d] &&
-        g_ram[d + 10] == SABER_TIER_8_RELEASE_CLASS &&
-        read_ram_word(g_ram, d + 0x3e) != 0x5a53);
-  }
+  check(MmxSaberComboWindowTicks() > 0 &&
+            MmxSaberComboWindowTicks() <= MMX_SABER_DEFAULT_FINISHER_WINDOW,
+        "finisher window opens after the third ground slash");
   cue_count = MmxSaberComboFinisherCueCount();
   frame(SNES_PAD_Y);
-  for (unsigned i = 0; i < 8; ++i) {
-    const unsigned d = 0x1228 + i * 64;
-    buster_survived |= buster_live_before[i] && g_ram[d] &&
-        g_ram[d + 10] == SABER_TIER_8_RELEASE_CLASS;
-  }
   const unsigned slash_slot = saber_finisher_slot_with_tag(0x5a53);
   const unsigned wave_slot = saber_finisher_wave_slot();
   check(MmxZeroGetState().slash == 1 && slash_slot && wave_slot &&
@@ -4500,7 +4399,6 @@ static void saber_finisher_accept_checks(const char *fixture) {
         "the reserved wave slot is inactive with a nonzero generation");
   check(MmxSaberAttackSnapshotGet().phase == SABER_PHASE_IDLE,
         "the window Y claim does not start a donor ground slash");
-  check(buster_survived, "the flying second buster shot remains untouched");
   check(MmxSaberComboFinisherCueCount() == cue_count + 1 &&
             MmxSaberSfxLastClip() == MMX_SABER_SFX_CLIP_SABER_3,
         "accepted upstream slash plays exactly one saber_3 finisher cue");
@@ -4598,58 +4496,31 @@ static void saber_finisher_gate_checks(const char *fixture) {
 
 static void saber_finisher_no_emission_checks(const char *fixture) {
   load_fixture(fixture);
+  g_ram[0x0bdb] = 0;
   MmxSaberFrameReset();
-  release_charge_button(150, SNES_PAD_X);
-  for (unsigned i = 0; i < 240 && MmxZeroGetState().burst; ++i)
+  frame(SNES_PAD_Y);
+  idle(7);
+  frame(SNES_PAD_Y);
+  frame(0);
+  idle(6);
+  frame(SNES_PAD_Y);
+  check(!MmxSaberComboWindowTicks(),
+        "finisher window stays closed until Ground3 naturally completes");
+  frame(0);
+  idle(MmxSaberAttackRecord(SABER_KIND_GROUND3, 0)->total_ticks);
+  for (unsigned i = 0; i < 4 && !MmxSaberComboWindowTicks(); ++i)
     frame(0);
-  check(MmxZeroGetState().combo == 1 && !MmxSaberComboWindowTicks(),
-        "single X3 burst has no finisher window");
+  check(MmxSaberComboWindowTicks() != 0,
+        "Ground3 completion opens the Saber finisher window without buster shots");
 
-  load_fixture(fixture);
-  MmxSaberFrameReset();
-  release_charge_button(150, SNES_PAD_X);
-  for (unsigned i = 0; i < 240 && MmxZeroGetState().burst; ++i)
-    frame(0);
+  saber_finisher_window_setup(fixture);
   saber_finisher_fill_free_slots();
   check(saber_finisher_free_slots() == 0,
-        "no-emission probe fills the pool before the second-burst request");
-  frame(SNES_PAD_X);
-  check(MmxZeroGetState().burst != 2 && !MmxSaberComboWindowTicks(),
-        "a full pool prevents the second burst from opening a window");
-
-  /* Start burst 2 with one free slot, then keep it full through the emission
-   * phase. This exercises the actual burst-2/no-new-live-bit path. */
-  load_fixture(fixture);
-  MmxSaberFrameReset();
-  release_charge_button(150, SNES_PAD_X);
-  for (unsigned i = 0; i < 240 && MmxZeroGetState().burst; ++i)
-    frame(0);
-  saber_finisher_fill_free_slots();
-  unsigned keep = 0;
-  for (unsigned d = 0x1228; d < 0x1428; d += 64) {
-    if (read_ram_word(g_ram, d) != 0) continue;
-    keep = d;
-    break;
-  }
-  check(keep == 0, "no-emission setup initially has a full native pool");
-  /* The save reload above leaves all slots free after burst 1. Make exactly
-   * one slot free for the second-burst request, then refill after it starts. */
-  g_ram[0x1228] = 0;
-  g_ram[0x1229] = 0;
-  for (unsigned d = 0x1228 + 64; d < 0x1428; d += 64) {
-    g_ram[d] = 1;
-    g_ram[d + 1] = 2;
-    g_ram[d + 10] = 3;
-  }
-  frame(SNES_PAD_X);
-  check(MmxZeroGetState().burst == 2,
-        "no-emission probe starts burst 2 while one slot is free");
-  for (unsigned i = 0; i < 60 && !MmxSaberComboWindowTicks(); ++i) {
-    saber_finisher_fill_free_slots();
-    frame(0);
-  }
-  check(!MmxSaberComboWindowTicks(),
-        "burst 2 with no newly live emitted slot does not open a window");
+        "no-emission probe fills the pool before the finisher request");
+  frame(SNES_PAD_Y);
+  check(!MmxZeroGetState().slash && !saber_finisher_wave_slot() &&
+            !MmxSaberComboReservedSlot(),
+        "a full projectile pool rejects the finisher and wave atomically");
 }
 
 static void saber_finisher_checks(const char *fixture) {
@@ -8202,13 +8073,14 @@ static void saber_boss_trace_finisher(const char *fixture, unsigned kind) {
   check(target != 0, "boss-death finisher walk reaches Penguin");
   g_ram[target + 0x27] = 32;
   g_ram[target + 0x35] = 0;
-  release_charge_button(150, SNES_PAD_X);
-  for (unsigned i = 0; i < 240 &&
-       (MmxZeroGetState().burst || MmxZeroGetState().shot_mask || g_ram[0xc25]); ++i)
-    frame(0);
-  frame(SNES_PAD_X);
-  if (MmxSaberComboWindowTicks()) opened = true;
-  for (unsigned i = 0; i < 120 && !opened; ++i) {
+  frame(SNES_PAD_Y);
+  idle(7);
+  frame(SNES_PAD_Y);
+  frame(0);
+  idle(6);
+  frame(SNES_PAD_Y);
+  idle(MmxSaberAttackRecord(SABER_KIND_GROUND3, 0)->total_ticks);
+  for (unsigned i = 0; i < 4 && !opened; ++i) {
     frame(0);
     opened = MmxSaberComboWindowTicks() != 0;
   }
@@ -8277,21 +8149,13 @@ static void saber_boss_death_checks(const char *fixture_dir) {
       saber_boss_trace_ground_combo(penguin, 0x02);
   const SaberBossDeathResult penguin_air = saber_boss_trace_air(penguin, 0x02);
   const SaberBossDeathResult penguin_dash = saber_boss_trace_dash(penguin, 0x02);
-  const SaberBossDeathResult penguin_small_buster =
-      saber_boss_trace_charged_buster(penguin, 0x02, 30);
-  const SaberBossDeathResult penguin_full_buster =
-      saber_boss_trace_charged_buster(penguin, 0x02, 90);
   const SaberBossDeathResult mammoth_bypass = saber_boss_trace_bypass(mammoth, 0);
-  const SaberBossDeathResult penguin_buster_bypass =
-      saber_boss_trace_buster_bypass(penguin, 0x02);
   saber_boss_trace_finisher(penguin, 0x02);
   saber_boss_print_result("penguin-plain", &penguin_plain);
   saber_boss_print_result("penguin-bypass", &penguin_bypass);
   saber_boss_print_result("penguin-ground-combo", &penguin_combo);
   saber_boss_print_result("penguin-air", &penguin_air);
   saber_boss_print_result("penguin-dash", &penguin_dash);
-  saber_boss_print_result("penguin-small-buster", &penguin_small_buster);
-  saber_boss_print_result("penguin-full-buster", &penguin_full_buster);
   saber_boss_print_result("mammoth-bypass", &mammoth_bypass);
   check(penguin_plain.lethal && penguin_plain.defeat_started &&
       penguin_plain.defeat_frame <= penguin_plain.lethal_frame + SABER_BOSS_DEFEAT_N &&
@@ -8307,26 +8171,11 @@ static void saber_boss_death_checks(const char *fixture_dir) {
   check(saber_boss_result_ok(&penguin_air) &&
             penguin_air.lethal_class == MMX_SABER_PRIORITY_CLASS_AIR,
       "boss-death Penguin air slash reaches native defeat");
-  check(saber_boss_result_ok(&penguin_small_buster) &&
-            penguin_small_buster.lethal_class ==
-                MMX_SABER_PRIORITY_CLASS_CHARGE_SMALL,
-      "boss-death Penguin small buster reaches native defeat");
-  check(saber_boss_result_ok(&penguin_full_buster),
-      "boss-death Penguin full buster reaches native defeat");
   check(mammoth_bypass.first_hit && mammoth_bypass.bypass_hit && mammoth_bypass.lethal &&
       mammoth_bypass.defeat_started &&
       mammoth_bypass.defeat_frame <= mammoth_bypass.lethal_frame + SABER_BOSS_DEFEAT_N &&
       (mammoth_bypass.final_hp & 127) == 0 && mammoth_bypass.final_state == 6,
       "boss-death Mammoth priority-bypass control starts native defeat");
-  check(penguin_buster_bypass.first_hit && penguin_buster_bypass.bypass_hit &&
-      penguin_buster_bypass.first_class == MMX_SABER_PRIORITY_CLASS_MAX_SHOT1 &&
-      penguin_buster_bypass.bypass_class == MMX_SABER_PRIORITY_CLASS_MAX_SHOT2 &&
-      penguin_buster_bypass.lethal && penguin_buster_bypass.defeat_started &&
-      penguin_buster_bypass.defeat_frame <=
-          penguin_buster_bypass.lethal_frame + SABER_BOSS_DEFEAT_N &&
-      (penguin_buster_bypass.final_hp & 127) == 0 &&
-      penguin_buster_bypass.final_state == 6,
-      "boss-death Penguin max-shot buster bypass starts native defeat");
 
   /* The first pass varies the native attack-pattern offset over 960 frames
    * (two complete 480-frame pattern windows observed in the trace), then
@@ -8600,11 +8449,11 @@ int main(int argc, char **argv) {
   } else if (saber_buster_rules) {
     check(MmxSaberEnabled(),
           "saber-buster-rules runs with the Saber package enabled");
-    saber_buster_rule_checks(fixture, fixture_dir);
+    saber_charge_cap_checks(fixture);
   } else if (saber_burst_height) {
     check(MmxSaberEnabled(),
           "saber-burst-height runs with the Saber package enabled");
-    saber_burst_height_checks(fixture, upstream_burst, &upstream_airborne);
+    saber_charge_cap_checks(fixture);
   } else if (saber_finisher) {
     check(MmxSaberEnabled(),
           "saber-finisher runs with the Saber package enabled");

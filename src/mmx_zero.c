@@ -492,6 +492,20 @@ void MmxZeroCancel(uint8_t ram[0x20000]) {
          MMX_ZERO_COMBAT_STATE_SIZE - MMX_ZERO_ANIMATION_STATE_SIZE);
   state.modern.slash_buffer = state.modern.hit_phase = 0;
 }
+
+void MmxZeroDisableBuster(uint8_t ram[0x20000]) {
+  if (!MmxZeroActive() || !ram) return;
+  if (state.charge || state.charge_phase || state.combo || state.saber_ready ||
+      state.burst || state.burst_end || state.burst_transition ||
+      state.burst_fired)
+    clear_charge(ram);
+  /* Do not call MmxZeroCancel here: the Saber-owned/native finisher slash and
+   * its wave reservation are independent of the buster's charge sequence. */
+  state.charge = state.charge_phase = state.combo = state.saber_ready = 0;
+  state.burst = state.burst_end = state.burst_transition = state.burst_fired = 0;
+  state.burst_offset = 0;
+  state.burst_timer = 0;
+}
 static unsigned free_projectile(const uint8_t *r) {
   for (unsigned d = 0x1228; d < 0x1428; d += 64)
     if (!word(r + d)) return d;
@@ -661,18 +675,27 @@ static void end_air_dash(uint8_t *r) {
   if (r[0xbaa] == 0x14) { r[0xbaa] = 8; r[0xbab] = 0; }
 }
 void MmxZeroMovementTick(uint8_t r[0x20000]) {
-  if (!MmxZeroModern() || !r) return;
+  if (!MmxZeroEnabled() || !r) return;
+  const bool x_character = state.active_x != 0;
+  const bool modern_zero = MmxZeroModern();
+  if (!x_character && !MmxZeroActive()) return;
   if (!movement_playable(r)) { end_air_dash(r); return; }
   bool grounded = (r[0xbd3] & 4) != 0;
   unsigned action = r[0xbaa];
+  /* X's boots upgrade is the durable Chill Penguin capsule flag in X1's
+   * native inventory byte. The synthetic ground-dash read override does not
+   * write that byte, so it remains a reliable gate for this added air dash. */
+  const bool air_dash_unlocked = (r[0x1f99] & 8) != 0;
   /* Wall contact restores aerial options, like landing. A menu, weapon
    * change or attack cancellation never grants another midair action. */
   if (grounded || action == 0x10) {
     end_air_dash(r);
-    state.modern.jump_used = state.modern.dash_used = 0;
+    if (modern_zero) state.modern.jump_used = 0;
+    state.modern.dash_used = 0;
   }
+  if (!air_dash_unlocked) end_air_dash(r);
   bool air = !grounded && (action == 6 || action == 8 || state.modern.dash_ticks);
-  if (air && (r[0xbe3] & 128) && !state.modern.jump_used &&
+  if (modern_zero && air && (r[0xbe3] & 128) && !state.modern.jump_used &&
       (!terrain_query || !standing_blocked(r))) {
     end_air_dash(r); MmxZeroCancel(r);
     state.modern.jump_used = 1;
@@ -687,8 +710,8 @@ void MmxZeroMovementTick(uint8_t r[0x20000]) {
   if (state.modern.dash_ticks && (!(r[0xbde] & 128) ||
       (r[0xbdf] & (state.modern.dash_facing ? 2 : 1)) || (r[0xc06] & 3)))
     end_air_dash(r);
-  if (air && !state.modern.dash_ticks && !state.modern.dash_used &&
-      (r[0xbe2] & 128)) {
+  if (air_dash_unlocked && air && !state.modern.dash_ticks &&
+      !state.modern.dash_used && (r[0xbe2] & 128)) {
     MmxZeroCancel(r);
     state.modern.dash_used = 1; state.modern.dash_ticks = 18;
     state.modern.dash_facing = (r[0xbdf] & 3) == 1 ? 64 :
@@ -705,7 +728,7 @@ void MmxZeroMovementTick(uint8_t r[0x20000]) {
   }
 }
 void MmxZeroPlayerMotion(uint8_t r[0x20000], unsigned object) {
-  if (!MmxZeroModern() || !r || object != 0xba8 || !state.modern.dash_ticks) return;
+  if (!MmxZeroEnabled() || !r || object != 0xba8 || !state.modern.dash_ticks) return;
   putword(r + 0xc04, 0x0375);
   putword(r + 0xbc2, state.modern.dash_facing ? 0x0375 : -0x0375);
   r[0xbfa] = 0x20;
