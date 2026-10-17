@@ -30,7 +30,17 @@ def apply(text):
         if block:
             pc = int(block[1], 16)
         if pc == 0x818ae8 and 'cpu_write16' in line and '0x0008' in line:
-            output.append(line)
+            # The pose-DMA source table is looked up inside compiled $84:8FCA,
+        # not the interpreter. Observe exactly its native table fetch.
+        if (0x848fca <= pc < 0x849000 and
+                'cpu_read16(cpu, cpu->DB,' in line and
+                'cpu->D + 0x0031' in line and 'cpu->Y' in line):
+            match = re.search(r'uint16 (_v\d+) = cpu_read16', line)
+            if match:
+                output.append(line)
+                output.append(f'    {MARKER} {{ extern void MmxZeroDashDmaLookupTrace(unsigned, unsigned, unsigned, unsigned, unsigned); MmxZeroDashDmaLookupTrace(cpu->D, cpu_read8(cpu,0x00,(uint16)(cpu->D+0x17)),cpu->DB,cpu_read16(cpu,0x00,(uint16)(cpu->D+0x31)),{match[1]}); }}\n')
+                continue
+        output.append(line)
             output.append(f'    {MARKER} {{ extern uint8_t g_ram[0x20000]; extern void MmxZeroDeathOrbSpawn(uint8_t *, unsigned, unsigned); MmxZeroDeathOrbSpawn(g_ram, cpu->D, cpu->X); }}\n')
             found.add(pc)
             continue
