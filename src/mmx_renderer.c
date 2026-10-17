@@ -364,24 +364,29 @@ void MmxRendererRecordPiece(const uint8_t ram[0x20000], uint16_t d) {
                                          ram[d + 0x10], animation, current_object,
                                          current_object && current_object<0x1fe0 ? ram[current_object+23]&127 : 0);
 }
+/* Debug-only input owned by host. Standalone renderer tests leave this NULL. */
+static const uint8_t *dash_layout_debug_ram;
+void MmxRendererSetDashLayoutDebugRam(const uint8_t *ram) {
+  dash_layout_debug_ram = ram;
+}
 void MmxRendererLatchSprites(void) {
   /* Diagnostic: compare native submitted pieces to ROM pose layout and
    * reconstructed pieces. No sprite or renderer state is changed. */
   {
-    extern uint8_t g_ram[0x20000];
+    const uint8_t *r = dash_layout_debug_ram;
     static unsigned seen[2][3];
-    unsigned pose = g_ram[0xbbf] & 0x7f;
-    unsigned boots = !!(g_ram[0x1f99] & 8);
-    if (MmxZeroEnabled() && g_ram[0xbaa] == 0x14 &&
+    unsigned pose = r ? r[0xbbf] & 0x7f : 0;
+    unsigned boots = !!(r[0x1f99] & 8);
+    if (r && MmxZeroEnabled() && r[0xbaa] == 0x14 &&
         pose >= 0x36 && pose <= 0x38 && seen[boots][pose - 0x36]++ < 3) {
-      const uint8_t *layout = sprite_arrangement(g_ram[0xbbe], pose);
+      const uint8_t *layout = sprite_arrangement(r[0xbbe], pose);
       unsigned native = 0, expanded = 0;
       for (unsigned i = 0; i < building_count; ++i)
         native += building[i].object == 0xba8;
       for (unsigned i = 0; i < expanded_building_count; ++i)
         expanded += expanded_building[i].object == 0xba8;
       fprintf(stderr, "[dash-layout] boots=%u pose=%02x group=%02x ROM-pieces=%u submitted=%u expanded=%u total-native=%u\n",
-              boots, pose, g_ram[0xbbe], layout ? layout[0] : 0,
+              boots, pose, r[0xbbe], layout ? layout[0] : 0,
               native, expanded, building_count);
     }
   }
