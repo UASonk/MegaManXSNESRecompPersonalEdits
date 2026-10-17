@@ -90,6 +90,27 @@ static void MmxBeforeFrame(void) {
   if (g_snes->cart) {
     MmxZeroSetCollisionRom(g_snes->cart->rom, g_snes->cart->romSize);
     MmxZeroDashArtRom(g_snes->cart->rom, g_snes->cart->romSize, g_ram);
+    /* Read-only verification of SNES -> ROM mapping for relocated dash art. */
+    {
+      static bool logged;
+      if (!logged && g_snes->cart->rom && g_snes->cart->romSize >= 0x2a605u) {
+        logged = true;
+        uint8_t *rom = g_snes->cart->rom;
+        unsigned entry = 0x2a597u + 0x36u * 2u;
+        unsigned list = 0x2a597u + (rom[entry] | rom[entry+1] << 8);
+        if (list + 10u <= g_snes->cart->romSize) {
+          unsigned addr = rom[list+1] | rom[list+2] << 8;
+          unsigned bank = rom[list+3];
+          uint8_t *mapped = cart_getRomPtr(g_snes->cart, (uint8_t)bank, (uint16_t)addr);
+          ptrdiff_t offset = mapped ? mapped - rom : -1;
+          fprintf(stderr, "[dash-map] cart bytes=%u first-pose=%05x DMA=%02x:%04x mapped-offset=%td first-byte=%02x mapped-byte=%02x\n",
+                  (unsigned)g_snes->cart->romSize, list, bank, addr, offset,
+                  rom[list], mapped ? *mapped : 0);
+        } else {
+          fprintf(stderr, "[dash-map] first dash DMA record out of range (%05x)\n", list);
+        }
+      }
+    }
     MmxWeaponsCollisionRom(g_snes->cart->rom, g_snes->cart->romSize);
     MmxCoopHostFrame();
     MmxBossRushHostFrame();
