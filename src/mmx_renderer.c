@@ -376,7 +376,7 @@ void MmxRendererLatchSprites(void) {
     const uint8_t *r = dash_layout_debug_ram;
     static unsigned seen[2][3];
     unsigned pose = r ? r[0xbbf] & 0x7f : 0;
-    unsigned boots = !!(r[0x1f99] & 8);
+    unsigned boots = r ? !!(r[0x1f99] & 8) : 0;
     if (r && MmxZeroEnabled() && r[0xbaa] == 0x14 &&
         pose >= 0x36 && pose <= 0x38 && seen[boots][pose - 0x36]++ < 3) {
       const uint8_t *layout = sprite_arrangement(r[0xbbe], pose);
