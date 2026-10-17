@@ -223,25 +223,31 @@ static void pre_player(uint8_t *ram) {
     return;
   }
 
+  /* Strip stale or legacy buster charge/burst state before the Zero player
+   * tick can interpret the cleared native fire bit as a release edge. */
+  MmxZeroDisableBuster(ram);
   pad = sample_pad(ram);
   physical = read_physical_pad(ram, pad);
+  /* With the buster selected, X is suppressed rather than charging/firing.
+   * Keep the native X edge available for equipped special weapons. */
+  if (ram[0x0bdb] == 0) {
+    physical.buttons &= (uint16_t)~MMX_SABER_PAD_X;
+    physical.prev_buttons &= (uint16_t)~MMX_SABER_PAD_X;
+    pad.x_held = false;
+    release_pending = false;
+  }
   saber = MmxSaberAttackPadState(release_pending);
   pre_native_saber = saber;
   MmxSaberAttackObservePreNative(ram);
-  /* A stun locks the Saber like a hit: no swing, no finisher, and the
-   * held buster charge is kept for the native state to resolve. */
+  /* A stun locks Saber attacks like a hit: no swing or finisher request. */
   const bool locked = native_fire_locked(ram);
   const bool finisher_claimed = MmxSaberComboPrePlayer(
       ram, !locked && (physical.buttons & MMX_SABER_PAD_Y) != 0 &&
           !(physical.prev_buttons & MMX_SABER_PAD_Y));
-  /* A Saber-only frame must not create a buster charge. Once X is held, its
-   * release edge, or an existing latch, the buster path remains available so
-   * charge can continue through the slash and CR1 can fire after recovery. */
-  const bool x_charge_owned =
-      (physical.buttons & MMX_SABER_PAD_X) != 0 ||
-      (physical.prev_buttons & MMX_SABER_PAD_X) != 0 || release_pending;
+  /* Saber Zero never selects the native buster charge path. Equipped
+   * special weapons still own X fire outside attacks that lock the action. */
   zero = (MmxSaberPadZero){
-      (ram[0x0bdb] == 0) && x_charge_owned,
+      false,
       ram[0x0baa] == 0x0e || locked,
       zero_dead_or_reset(ram),
       (ram[0x0bd3] & 4) || (ram[0x0bd4] & 4)};
@@ -249,7 +255,13 @@ static void pre_player(uint8_t *ram) {
   /* Classify the physical edge first, advance the Saber owner second, and
    * only then compute/write the native pad.  saber_pressed is phase-independent,
    * so the pad written for this frame already reflects a newly started slash. */
-  out = MmxSaberComputePad(physical, read_native_pad(ram), saber, zero);
+  MmxSaberNativePad native = read_native_pad(ram);
+  if (ram[0x0bdb] == 0) {
+    native.action_held &= (uint8_t)~MMX_SABER_NATIVE_FIRE_BIT;
+    native.action_pressed &= (uint8_t)~MMX_SABER_NATIVE_FIRE_BIT;
+    native.fire_previous &= (uint8_t)~MMX_SABER_NATIVE_FIRE_BIT;
+  }
+  out = MmxSaberComputePad(physical, native, saber, zero);
   if (finisher_claimed) out.saber_pressed = false;
   if (zero.hurt)
     MmxSaberAttackExit(ram, MMX_SABER_ATTACK_EXIT_HURT);
@@ -270,7 +282,13 @@ static void pre_player(uint8_t *ram) {
   if (pre_native_saber.phase == SABER_PHASE_STARTUP &&
       saber.phase != SABER_PHASE_IDLE)
     saber.phase = SABER_PHASE_STARTUP;
-  out = MmxSaberComputePad(physical, read_native_pad(ram), saber, zero);
+  native = read_native_pad(ram);
+  if (ram[0x0bdb] == 0) {
+    native.action_held &= (uint8_t)~MMX_SABER_NATIVE_FIRE_BIT;
+    native.action_pressed &= (uint8_t)~MMX_SABER_NATIVE_FIRE_BIT;
+    native.fire_previous &= (uint8_t)~MMX_SABER_NATIVE_FIRE_BIT;
+  }
+  out = MmxSaberComputePad(physical, native, saber, zero);
   publish_ground_swing(ram, saber);
 
   /* The computed view is the sole input write for this frame. There is no
@@ -301,7 +319,7 @@ static int burst_origin_y(const uint8_t *ram, unsigned shot_index,
 /* "SABR" + layout version, then the frame's own fields and each module's
  * snapshot in a fixed order. A blob without this header leaves the reset
  * state that MmxZeroSetState already established. */
-enum { SABER_STATE_MAGIC = 0x52424153u, SABER_STATE_VERSION = 1u };
+enum { SABER_STATE_MAGIC = 0x52424153u, SABER_STATE_VERSION = 2u };
 typedef struct SaberFrameSavedState {
   uint32_t magic, version;
   bool release_pending, previous_y, previous_x;
@@ -340,8 +358,12 @@ static void state_load(const uint8_t in[]) {
   memcpy(&frame, cursor, sizeof(frame));
   if (frame.magic != SABER_STATE_MAGIC ||
       frame.version != SABER_STATE_VERSION ||
-      saved_state_size() > MMX_ZERO_EXTENSION_STATE_BYTES)
+      saved_state_size() > MMX_ZERO_EXTENSION_STATE_BYTES) {
+    /* Older blobs use a different combo-state layout. Reset this extension
+     * instead of reading their following module snapshots at shifted offsets. */
+    state_reset(NULL);
     return;
+  }
   cursor += sizeof(frame);
   release_pending = frame.release_pending;
   previous_y = frame.previous_y;

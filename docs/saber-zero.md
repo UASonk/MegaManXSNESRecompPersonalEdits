@@ -13,6 +13,9 @@ in **Characters → Co-op** (Saber belongs to whichever seat is Zero). Both
 features already ask for the player's **Mega Man X3 USA** ROM; Saber Zero uses
 that same selection. ROMs are never included.
 
+X has ground dash from the start while the Zero feature is active. Air dash for
+both X and Zero unlocks when the Chill Penguin boots capsule is collected.
+
 The package's sprite and sound-effect donors are credited in
 [assets/saber-zero/CREDITS.md](../assets/saber-zero/CREDITS.md). They are by
 the Zashiko Mod, are included for non-commercial use, and must not be used
@@ -20,39 +23,41 @@ commercially. This project is not monetized.
 
 ## Controls
 
-The physical SNES pad rules are deliberately narrow: Saber owns Y and the
-buster/special translation owns X. The other native controls remain available.
+The physical SNES pad rules are deliberately narrow: Saber owns Y; X is ignored
+with the buster selected and continues to fire an equipped special weapon. The
+other native controls remain available.
 
 | Button | Behavior |
 |--------|----------|
 | Y | Start/continue a Saber attack. On the ground it starts the 3-hit combo; in the air it is an air slash; on a wall it is a wall slash; during a grounded dash it is a dash slash. A held Y produces one edge. |
-| X | Charge and fire the buster when the buster is selected; otherwise fire the selected special weapon. X is blocked from creating a new buster/special shot while a Saber slash, finisher, or wave-shooting animation owns the action. |
+| X | Ignored when the buster is selected (Saber Zero cannot charge or fire it); otherwise fires the selected special weapon. X cannot start a special shot while a Saber slash, finisher, or wave-shooting animation owns the action. |
 | B | Native jump. |
 | A | Native dash. |
 | Direction | Native movement. Ground swings and dash swings mask the movement edges required by their attack state, so holding the opposite direction cannot turn a swing. |
 | Select | Native X/Zero exchange in the normal standing exchange context. |
 
 Hurt, death, reset, menus, and an exchange to X cancel the Saber owner for that
-frame. A charge held before a slash can continue through the slash; a release
-is latched and fires on the first eligible frame after the slash. A hurt frame
-does not invent a buster press or throw away an existing release latch.
+frame. With the buster selected, X never starts a charge, creates a buster shot,
+or releases a stale charge latch. Equipped special weapons retain their X input
+outside attacks that own the action.
 
 ## Saber attacks
 
 The ground combo is driven by distinct Y press edges:
 
-1. Ground slash 1 has 4 startup frames, 8 active frames, and 18 recovery
-   frames. Its chain window is ticks 12 through 29, with an early buffer from
-   ticks 4 through 11.
-2. Ground slash 2 has 0 startup, 12 active frames, and 18 recovery frames. Its
-   chain window is ticks 12 through 29, with an early buffer from ticks 0
-   through 11.
-3. Ground slash 3 has 0 startup, 14 active frames, and 25 recovery frames. It
+1. Ground slash 1 has 2 startup frames, 6 active frames, and 10 recovery
+   frames. Its chain window is ticks 7 through 17, with an early buffer from
+   ticks 2 through 6.
+2. Ground slash 2 has 0 startup, 8 active frames, and 8 recovery frames. Its
+   chain window is ticks 6 through 15, with an early buffer from ticks 0
+   through 5.
+3. Ground slash 3 has 0 startup, 10 active frames, and 12 recovery frames. It
    has no fourth combo entry.
 
-An air slash is 4 startup, 8 active, and 6 recovery frames. A wall slash is 0
-startup, 12 active, and 8 recovery frames. A dash slash is 2 startup, 10
-active, and 18 recovery frames. Each of those is a single attack. The attack
+An air slash is 2 startup, 6 active, and 4 recovery frames. A wall slash is 0
+startup, 8 active, and 6 recovery frames. A dash slash is 1 startup, 8 active,
+and 9 recovery frames. Each of those is a single attack. These faster timings
+are an X4-inspired adaptation, not a frame-exact port of X4's combat engine. The attack
 owner uses the native action context for jump, dash, wall cling, landing, hurt,
 and death transitions, so an attack does not create a second movement system.
 
@@ -62,29 +67,16 @@ are intentionally lower; the full defaults are in the option table below.
 Damage is applied once per enemy per swing where the current attack owner
 requires that protection.
 
-## Buster charge and the X3 finisher
+## Saber finisher and wave
 
-While X is held, the Zero charge counter reaches these X3 thresholds:
-
-| Held frames | Tier | Result |
-|-------------|------|--------|
-| 21 | 4 | Small charged class |
-| 81 | 6 | Class-3 charged shot |
-| 141 | 8 | Max-charge route |
-| 200 | 8 (Saber cap) | The counter stops here; the upstream tier-10 route is not entered. |
-
-Release of the capped charge starts the two-shot class-3 sequence. Press X
-again for the second burst after the native first-burst delay. Saber Zero
-changes the two emission origins so the two max shots share one vertical height,
-both on the ground and in the supported airborne route.
-
-After the second burst becomes newly live, the finisher window opens at the
-post-player update. It is 27 frames by default and can be tuned from 12 to 60.
-Press Y during that window to request the X3 finisher. The request reserves a
-projectile slot for the wave, starts the upstream-style finisher, and publishes
-the wave at finisher age 7. If no slot can be reserved, the Y edge is consumed
-but the finisher/wave reservation cannot be completed. While the finisher or
-wave-shooting animation is active, X cannot start a buster or special shot.
+After the third ground slash naturally completes, a finisher window opens. It is
+27 frames by default and can be tuned from 12 to 60. Press Y again during that
+window to request the existing X3 finisher. The request reserves a projectile
+slot for the wave, starts the finisher animation, and publishes the wave at
+finisher age 7. If no slot can be reserved, the Y edge is consumed but the
+finisher/wave reservation cannot be completed. The buster is not used to enter
+this move; while the finisher or wave-shooting animation is active, X cannot
+start a special shot.
 
 ## Hit priority
 
@@ -154,7 +146,7 @@ the live seat, so a partner Zero piloting a Ride Armor keeps the native cockpit
 art.
 
 Saber's host-side state (attack, combo, hit priority, wave bookkeeping and the
-pad edges) is part of the savestate as a fixed Zero-extension blob (chunk v18),
+pad edges) is part of the savestate as a fixed Zero-extension blob with its own Saber substate version,
 so rewind, save states and netplay rollback restore a swing in progress instead
 of cancelling it. Older saves load with Saber reset.
 

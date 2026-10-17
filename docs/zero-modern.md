@@ -16,6 +16,8 @@ charge/upgrade requirements. X retains his original controller and buster.
 
 ## Combat and movement
 
+- X has ground dash available from the start while the Zero feature is enabled. Air dash for both X and Zero unlocks when the Chill Penguin boots capsule is collected; the native boots-upgrade flag is used so the unlock survives stage transitions and saves.
+
 - Press Fire with the buster selected to swing immediately. Holding Fire does
   not repeat automatically. A press near the end of recovery buffers another
   swing. Ground and air poses, blade sprites and hitbox arcs come from the
@@ -36,10 +38,11 @@ charge/upgrade requirements. X retains his original controller and buster.
 - Press Jump again in the air for a second jump. Landing or wall contact
   refreshes the allowance. Jump strength uses the native action-6 velocity,
   with the existing ceiling and water handling.
-- Press Dash in the air for a horizontal dash, up to 18 ticks at native dash
-  speed. Release Dash, reverse direction, or meet terrain to end it sooner.
-  One air dash is allowed before the next landing/wall contact. The extra
-  jump and dash remain available with special weapons selected.
+- After collecting Chill Penguin's boots capsule, press Dash in the air for a
+  horizontal dash, up to 18 ticks at native dash speed. Release Dash, reverse
+  direction, or meet terrain to end it sooner. One air dash is allowed before
+  the next landing/wall contact. The extra jump remains available independently;
+  the air dash requires the capsule unlock.
 
 ## Integration notes
 

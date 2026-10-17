@@ -76,7 +76,11 @@ static void modern_checks(void) {
   assert(ram[0xbc4]==0x53 && ram[0xbc5]==5 && ram[0xbc6]==0x40);
   ram[0xbc4]=ram[0xbc5]=0; ram[0xbe3]=128; MmxZeroMovementTick(ram);
   assert(!ram[0xbc4] && !ram[0xbc5]); /* No third jump. */
-  ram[0xbe3]=0; ram[0xbe2]=ram[0xbde]=128; MmxZeroMovementTick(ram);
+  ram[0xbe3]=0; ram[0xbe2]=ram[0xbde]=128;
+  MmxZeroMovementTick(ram);
+  assert(!MmxZeroGetState().modern.dash_used); /* Air dash is locked before Chill Penguin's boots. */
+  ram[0x1f99] |= 8; /* Simulate collecting the boots capsule. */
+  MmxZeroMovementTick(ram);
   s=MmxZeroGetState(); assert(s.modern.dash_used && s.modern.dash_ticks==18);
   MmxZeroPlayerMotion(ram,0xba8); assert(ram[0xbc2]==0x75 && ram[0xbc3]==3);
   MmxZeroCancel(ram); assert(MmxZeroGetState().modern.jump_used);
