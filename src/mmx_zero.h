@@ -93,6 +93,7 @@ const uint8_t *MmxZeroMenuPose(void);
 /* Original X3 BGR555 badge pixel; -2 is transparent, -1 retains native art. */
 int MmxZeroHudColor(unsigned x, unsigned y);
 void MmxZeroSetCollisionRom(uint8_t *rom, size_t size);
+void MmxZeroDashArtRom(uint8_t *rom, size_t size, const uint8_t ram[0x20000]);
 /* Terrain solidity for wall/ceiling probes (not one-way floors or slopes). */
 void MmxZeroSetTerrainQuery(bool (*solid)(const uint8_t *ram, int x, int y));
 /* True at a dash exit ($81:898E/8999/8965) when Zero must keep sliding. */
