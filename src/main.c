@@ -147,7 +147,9 @@ static void MmxDashOamTrace(void) {
   fprintf(stderr, "[dash-oam] boots=%u pose=%02x visible-list-size=%u (max reported 40)\n",boots,pose,printed);
 }
 
+extern void MmxRendererSetDashLayoutDebugRam(const uint8_t *ram);
 static void MmxBeforeFrame(void) {
+  MmxRendererSetDashLayoutDebugRam(g_ram);
   dma_set_vram_notify_hook(MmxDashVramDmaStarted);
   MmxDashVramCheck();
   MmxDashOamTrace();
