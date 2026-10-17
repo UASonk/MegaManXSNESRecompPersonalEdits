@@ -33,10 +33,10 @@ static const MmxSaberBoundsSegment kGroundFinisherBounds[] = {
     {10, 13, 38, -4, 30, 25}};
 
 static const MmxSaberBoundsSegment kAirSlashBounds[] = {
-    {4, 5, 16, -24, 17, 12},
-    {6, 7, 14, -16, 30, 19},
-    {8, 9, 13, -12, 42, 23},
-    {10, 11, -13, -14, 18, 11}};
+    {1, 1, 16, -24, 17, 12},
+    {2, 2, 14, -16, 30, 19},
+    {3, 3, 13, -12, 42, 23},
+    {4, 4, -13, -14, 18, 11}};
 
 static const MmxSaberBoundsSegment kWallSlashBounds[] = {
     {0, 3, 31, -10, 33, 19},
@@ -113,10 +113,10 @@ static const MmxSaberAttack kSaberAttacks[] = {
         .index = 0,
         .visual_animation = 4,
         .facing_xor = 1,
-        .startup_ticks = 2,
-        .active_ticks = 6,
-        .recovery_ticks = 4,
-        .total_ticks = 12,
+        .startup_ticks = 1,
+        .active_ticks = 4,
+        .recovery_ticks = 3,
+        .total_ticks = 8,
         .chain_open_tick = MMX_SABER_NO_WINDOW,
         .chain_close_tick = MMX_SABER_NO_WINDOW,
         .buffer_open_tick = MMX_SABER_NO_WINDOW,
